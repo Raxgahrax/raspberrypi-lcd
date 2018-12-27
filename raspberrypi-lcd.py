@@ -12,9 +12,10 @@
 # Author : Matt Hawkins, Leon Anavi
 # Date   : 06/04/2015
 #
-# http://www.raspberrypi-spy.co.uk/
 # http://anavi.org/
-#
+# http://www.raspberrypi-spy.co.uk/
+# https://www.raspberrypi-spy.co.uk/2012/07/16x2-lcd-module-control-using-python/
+
 # Copyright 2015 Matt Hawkins, Leon Anavi
 #
 # This program is free software: you can redistribute it and/or modify
@@ -29,7 +30,6 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
 #--------------------------------------
 
 # The wiring for the LCD is as follows:
@@ -56,16 +56,21 @@ import os
 import socket
 import fcntl
 import struct
+import locale
 import time
-from time import gmtime, strftime
+from time import strftime, sleep
+from datetime import datetime
+
+import Adafruit_DHT as dht
+from Adafruit_CharLCD import Adafruit_CharLCD
 
 def getCPUtemperature():
   res = os.popen("vcgencmd measure_temp").readline()
   return(res.replace("temp=","").replace("'C\n",""))
-
+  
 def printDateTime():
-  textDate = strftime("%d %A %Y", gmtime())
-  textTime = strftime("%H:%M:%S", gmtime())
+  textDate = strftime("%d-%m-%Y", time.localtime())
+  textTime = strftime("%H:%M:%S", time.localtime())
   lcd_string(textDate,LCD_LINE_1)
   lcd_string(textTime,LCD_LINE_2)
   return
@@ -88,7 +93,15 @@ def getIP():
   ipEth = getInterfaceAddress('eth0')
   if ipEth:
     return ipEth
-
+	
+def printDHT():
+  humi, temp = dht.read_retry(dht.DHT22, 21)
+  textTemp = 'Temp: %d *C' % temp
+  textHumi = 'Humi: %d %%' % humi
+  lcd_string(textTemp,LCD_LINE_1)
+  lcd_string(textHumi,LCD_LINE_2)
+  return
+  
 # Define GPIO to LCD mapping
 LCD_RS = 7
 LCD_E  = 8
@@ -127,8 +140,8 @@ def main():
   lcd_init()
 
   while True:
-
-    # Display date and time
+  
+	# Display Time
     index = 0
     while index < 5:
       printDateTime()
@@ -136,17 +149,19 @@ def main():
       index += 1
 
     # Display CPU temperature
-    lcd_string("CPU temperature:",LCD_LINE_1)
-    textCPU = getCPUtemperature()+"C"
+    lcd_string("Temperature CPU:",LCD_LINE_1)
+    textCPU = getCPUtemperature()+" *C"
     lcd_string(textCPU,LCD_LINE_2)
-
     time.sleep(3)
-
+	
     # Display local IP
-    lcd_string("IP:",LCD_LINE_1)
+    lcd_string("Adresse IP:",LCD_LINE_1)
     textIP = getIP()
     lcd_string(textIP,LCD_LINE_2)
-
+    time.sleep(3)
+	
+	# Display DHT22
+    printDHT()
     time.sleep(3)
 
 def lcd_init():
