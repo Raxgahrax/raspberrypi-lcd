@@ -12,10 +12,9 @@
 # Author : Matt Hawkins, Leon Anavi
 # Date   : 06/04/2015
 #
-# http://anavi.org/
 # http://www.raspberrypi-spy.co.uk/
-# https://www.raspberrypi-spy.co.uk/2012/07/16x2-lcd-module-control-using-python/
-
+# http://anavi.org/
+# http://hardware-libre.fr/2013/07/ajouter-un-bouton-dextinction-avec-python/
 # Copyright 2015 Matt Hawkins, Leon Anavi
 #
 # This program is free software: you can redistribute it and/or modify
@@ -30,6 +29,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# https://www.raspberrypi-spy.co.uk/2012/07/16x2-lcd-module-control-using-python/
 #--------------------------------------
 
 # The wiring for the LCD is as follows:
@@ -50,6 +50,8 @@
 # 15: LCD Backlight +5V**
 # 16: LCD Backlight GND
 
+import RPLCD as RPLCD
+from RPLCD.gpio import CharLCD
 #import
 import RPi.GPIO as GPIO
 import os
@@ -60,10 +62,12 @@ import locale
 import time
 from time import strftime, sleep
 from datetime import datetime
-
 import Adafruit_DHT as dht
-from Adafruit_CharLCD import Adafruit_CharLCD
 
+# Main program block
+lcd = CharLCD(numbering_mode=GPIO.BOARD, cols=16, rows=2, pin_rs=37, pin_e=35, pins_data=[33, 31, 29, 23])
+GPIO.setwarnings(False)
+  
 def getCPUtemperature():
   res = os.popen("vcgencmd measure_temp").readline()
   return(res.replace("temp=","").replace("'C\n",""))
@@ -71,8 +75,10 @@ def getCPUtemperature():
 def printDateTime():
   textDate = strftime("%d-%m-%Y", time.localtime())
   textTime = strftime("%H:%M:%S", time.localtime())
-  lcd_string(textDate,LCD_LINE_1)
-  lcd_string(textTime,LCD_LINE_2)
+  lcd.cursor_pos = (0, 0)
+  lcd.write_string(textDate)
+  lcd.cursor_pos = (1, 0)
+  lcd.write_string(textTime)
   return
 
 def getInterfaceAddress(ifname):
@@ -98,46 +104,13 @@ def printDHT():
   humi, temp = dht.read_retry(dht.DHT22, 21)
   textTemp = 'Temp: %d *C' % temp
   textHumi = 'Humi: %d %%' % humi
-  lcd_string(textTemp,LCD_LINE_1)
-  lcd_string(textHumi,LCD_LINE_2)
+  lcd.cursor_pos = (0, 0)
+  lcd.write_string(textTemp)
+  lcd.cursor_pos = (1, 0)  
+  lcd.write_string(textHumi)
   return
   
-# Define GPIO to LCD mapping
-LCD_RS = 7
-LCD_E  = 8
-LCD_D4 = 25
-LCD_D5 = 24
-LCD_D6 = 23
-LCD_D7 = 18
-
-
-# Define some device constants
-LCD_WIDTH = 16    # Maximum characters per line
-LCD_CHR = True
-LCD_CMD = False
-
-LCD_LINE_1 = 0x80 # LCD RAM address for the 1st line
-LCD_LINE_2 = 0xC0 # LCD RAM address for the 2nd line
-
-# Timing constants
-E_PULSE = 0.0005
-E_DELAY = 0.0005
-
 def main():
-  # Main program block
-  
-  GPIO.setwarnings(False)
-  GPIO.setmode(GPIO.BCM)       # Use BCM GPIO numbers
-  GPIO.setup(LCD_E, GPIO.OUT)  # E
-  GPIO.setup(LCD_RS, GPIO.OUT) # RS
-  GPIO.setup(LCD_D4, GPIO.OUT) # DB4
-  GPIO.setup(LCD_D5, GPIO.OUT) # DB5
-  GPIO.setup(LCD_D6, GPIO.OUT) # DB6
-  GPIO.setup(LCD_D7, GPIO.OUT) # DB7
-
-
-  # Initialise display
-  lcd_init()
 
   while True:
   
@@ -149,91 +122,25 @@ def main():
       index += 1
 
     # Display CPU temperature
-    lcd_string("Temperature CPU:",LCD_LINE_1)
+    lcd.cursor_pos = (0, 0)
+    lcd.write_string("Temperature CPU:")
     textCPU = getCPUtemperature()+" *C"
-    lcd_string(textCPU,LCD_LINE_2)
+    lcd.cursor_pos = (1, 0)	
+    lcd.write_string(textCPU)
     time.sleep(3)
 	
     # Display local IP
-    lcd_string("Adresse IP:",LCD_LINE_1)
+    lcd.cursor_pos = (0, 0)
+    lcd.write_string("Adresse IP:")
     textIP = getIP()
-    lcd_string(textIP,LCD_LINE_2)
+    lcd.cursor_pos = (1, 0)	
+    lcd.write_string(textIP)
     time.sleep(3)
 	
 	# Display DHT22
     printDHT()
     time.sleep(3)
 
-def lcd_init():
-  # Initialise display
-  lcd_byte(0x33,LCD_CMD) # 110011 Initialise
-  lcd_byte(0x32,LCD_CMD) # 110010 Initialise
-  lcd_byte(0x06,LCD_CMD) # 000110 Cursor move direction
-  lcd_byte(0x0C,LCD_CMD) # 001100 Display On,Cursor Off, Blink Off
-  lcd_byte(0x28,LCD_CMD) # 101000 Data length, number of lines, font size
-  lcd_byte(0x01,LCD_CMD) # 000001 Clear display
-  time.sleep(E_DELAY)
-
-def lcd_byte(bits, mode):
-  # Send byte to data pins
-  # bits = data
-  # mode = True  for character
-  #        False for command
-
-  GPIO.output(LCD_RS, mode) # RS
-
-  # High bits
-  GPIO.output(LCD_D4, False)
-  GPIO.output(LCD_D5, False)
-  GPIO.output(LCD_D6, False)
-  GPIO.output(LCD_D7, False)
-  if bits&0x10==0x10:
-    GPIO.output(LCD_D4, True)
-  if bits&0x20==0x20:
-    GPIO.output(LCD_D5, True)
-  if bits&0x40==0x40:
-    GPIO.output(LCD_D6, True)
-  if bits&0x80==0x80:
-    GPIO.output(LCD_D7, True)
-
-  # Toggle 'Enable' pin
-  lcd_toggle_enable()
-
-  # Low bits
-  GPIO.output(LCD_D4, False)
-  GPIO.output(LCD_D5, False)
-  GPIO.output(LCD_D6, False)
-  GPIO.output(LCD_D7, False)
-  if bits&0x01==0x01:
-    GPIO.output(LCD_D4, True)
-  if bits&0x02==0x02:
-    GPIO.output(LCD_D5, True)
-  if bits&0x04==0x04:
-    GPIO.output(LCD_D6, True)
-  if bits&0x08==0x08:
-    GPIO.output(LCD_D7, True)
-
-  # Toggle 'Enable' pin
-  lcd_toggle_enable()
-
-def lcd_toggle_enable():
-  # Toggle enable
-  time.sleep(E_DELAY)
-  GPIO.output(LCD_E, True)
-  time.sleep(E_PULSE)
-  GPIO.output(LCD_E, False)
-  time.sleep(E_DELAY)
-
-def lcd_string(message,line):
-  # Cast to string
-  message = str(message)
-  # Send string to display
-  message = message.ljust(LCD_WIDTH," ")
-
-  lcd_byte(line, LCD_CMD)
-
-  for i in range(LCD_WIDTH):
-    lcd_byte(ord(message[i]),LCD_CHR)
 
 if __name__ == '__main__':
 
@@ -242,6 +149,4 @@ if __name__ == '__main__':
   except KeyboardInterrupt:
     pass
   finally:
-    lcd_byte(0x01, LCD_CMD)
-    lcd_string("Goodbye!",LCD_LINE_1)
     GPIO.cleanup()
