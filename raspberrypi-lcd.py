@@ -64,6 +64,9 @@ from time import strftime, sleep
 from datetime import datetime
 import Adafruit_DHT as dht
 
+# French
+locale.setlocale(locale.LC_ALL, 'fr_FR.utf8')
+
 # Main program block
 lcd = CharLCD(numbering_mode=GPIO.BOARD, cols=16, rows=2, pin_rs=37, pin_e=35, pins_data=[33, 31, 29, 23])
 GPIO.setwarnings(False)
@@ -73,11 +76,12 @@ def getCPUtemperature():
   return(res.replace("temp=","").replace("'C\n",""))
   
 def printDateTime():
-  textDate = strftime("%d-%m-%Y", time.localtime())
+  textDate = strftime(" %a  %d/%m/%y", time.localtime())
   textTime = strftime("%H:%M:%S", time.localtime())
   lcd.cursor_pos = (0, 0)
+  lcd.clear()
   lcd.write_string(textDate)
-  lcd.cursor_pos = (1, 0)
+  lcd.cursor_pos = (1, 4)
   lcd.write_string(textTime)
   return
 
@@ -100,48 +104,64 @@ def getIP():
   if ipEth:
     return ipEth
 	
-def printDHT():
+def printDHT_In():
   humi, temp = dht.read_retry(dht.DHT22, 21)
   textTemp = 'Temp: %d *C' % temp
   textHumi = 'Humi: %d %%' % humi
   lcd.cursor_pos = (0, 0)
+  lcd.clear()
   lcd.write_string(textTemp)
   lcd.cursor_pos = (1, 0)  
   lcd.write_string(textHumi)
   return
   
+#def printDHT_Out():
+#  humi, temp = dht.read_retry(dht.DHT22, 20)
+#  textTemp = 'Temp. Ext: %d *C' % temp
+#  textHumi = 'Humi. Ext: %d %%' % humi
+#  lcd.cursor_pos = (0, 0)
+#  lcd.write_string(textTemp)
+#  lcd.cursor_pos = (1, 0)  
+#  lcd.write_string(textHumi)
+#  return  
+  
 def main():
 
   while True:
-  
+    
 	# Display Time
     index = 0
-    while index < 5:
+    while index < 6: # Nb de sec + 1
       printDateTime()
       time.sleep(1)
       index += 1
 
     # Display CPU temperature
     lcd.cursor_pos = (0, 0)
+    lcd.clear()	
     lcd.write_string("Temperature CPU:")
     textCPU = getCPUtemperature()+" *C"
-    lcd.cursor_pos = (1, 0)	
+    lcd.cursor_pos = (1, 5)	
     lcd.write_string(textCPU)
     time.sleep(3)
 	
     # Display local IP
     lcd.cursor_pos = (0, 0)
+    lcd.clear()	
     lcd.write_string("Adresse IP:")
     textIP = getIP()
-    lcd.cursor_pos = (1, 0)	
+    lcd.cursor_pos = (1, 2)	
     lcd.write_string(textIP)
     time.sleep(3)
 	
-	# Display DHT22
-    printDHT()
+	# Display DHT22_In
+    printDHT_In()
     time.sleep(3)
-
-
+	
+	# Display DHT22_Out
+#    printDHT_Out()
+#    time.sleep(3)
+	
 if __name__ == '__main__':
 
   try:
